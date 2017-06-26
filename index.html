@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>登录注册,忘记密码等的封装</title>
+  <style>
+    .hide {
+      display: none;
+    }
+
+    .error-tip {
+      font-size: 12px;
+      color: red;
+    }
+
+    .disabled {
+      cursor: not-allowed;
+    }
+
+    .container {
+      width: 1200px;
+      margin: 0 auto;
+    }
+
+    .clearfix {
+      zoom: 1;
+    }
+
+    .clearfix::after {
+      clear: both;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="node">
+    <div class="wrap" data-type="tlp">
+      <label for="tlp">手机号:</label>
+      <input type="text" placeholder="手机号">
+      <div class="error-tip hide">错误信息提示</div>
+    </div>
+    <div class="wrap" data-type="code">
+      <input type="text" placeholder="">
+      <a type="button" class="acodehandle disabled">发送验证码</a>
+      <div class="error-tip hide">错误信息提示</div>
+    </div>
+    <div class="wrap" data-type="pwd">
+      <label for="pwds">密码:</label>
+      <input type="password" placeholder="密码" id="pwds">
+      <div class="error-tip hide">错误信息提示</div>
+    </div>
+    <div class="wrap" data-type="repwd">
+      <label for="pwds">确认密码:</label>
+      <input type="password" placeholder="密码" id="pwds">
+      <div class="error-tip hide">错误信息提示</div>
+    </div>
+    <div class="wrap" data-type="submit">
+      <button class="btn-submit  disabled">提交</button>
+    </div>
+  </div>
+  <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.js"></script>
+  <script>
+    (function ($) {
+      function formVld(args) {
+        this.params = Object.assign({
+          results: {},
+          submitClass: '.btn-submit',
+          errorClass: '.error-tip',
+          acodehandleClass: '.acodehandle',
+          pwdRules: {
+            minLength: 5,
+            maxLength: 11,
+            reg: {},
+          },
+          repwdRules:{},
+          codeLength: 4,
+        }, args);
+        // 验证码提交相关参数
+        this.codeStatus = false;
+        this.codeAccount = 60;
+        this.timer = null;
+        // 是否可以提交状态
+        this.couldSubmitStatus = false;
+        // 定义默认的规则
+
+        this.rules = {
+          number: /^\d*$/,
+          letter: /[a-z]/ig,
+        }
+        let node = typeof this.params.dom === 'string' ? $(this.params.dom) : this.params.dom;
+
+        // 遍历所有的node
+        if (typeof this.params.dom !== 'string' && typeof node !== 'object') {
+          throw new Error('请传入正确的dom');
+        } else if (!node.length) {
+          throw new Error('请传入正确的dom');
+        } else {
+          const wraps = node.find('.wrap');
+          wraps.each((index, item) => {
+            const dom = $(item);
+            const type = dom.data('type');
+            if (type === 'tlp') {
+              this.tlpVld(dom);
+            } else if (type === 'code') {
+              this.codeVld(dom);
+            } else if (type === 'pwd') {
+              this.pwdVld(dom);
+            } else if (type === 'repwd') {
+              this.repwdVld(dom);
+            } else if (type === 'submit') {
+              this.submitVld(dom)
+            }
+            this.onCommonBlur(dom);
+          });
+        }
+
+      }
+      // 电话号码检测
+      formVld.prototype.tlpVld = function (dom) {
+        this.params.results.tlp = "";
+        dom.on('input', 'input', (e) => {
+          const t = this.getT(e);
+          const val = this.getTV(e);
+          const errorTip = t.siblings(this.params.errorClass);
+          const filterVal = val.replace(this.rules.letter, '').substring(0, 11);
+          t.val(filterVal);
+          // 判断规则
+          if (!this.params.tlpRules.reg.test(filterVal) && filterVal.length === 11) {
+            errorTip.text(this.params.tlpRules.errorTlpMsg).show();
+          } else {
+            // 判断是否能点击发送验证码
+            if (this.params.tlpRules.reg.test(filterVal) && filterVal.length === 11) {
+              $(this.params.acodehandleClass).removeClass('disabled');
+              this.params.results.tlp = filterVal;
+            } else {
+              $(this.params.acodehandleClass).addClass('disabled');
+            }
+            errorTip.hide();
+          }
+          // 判断提交状态
+          this.couldSubmitStatus = this.couldSubmit();
+        });
+        dom.on('blur', 'input', (e) => {
+          const t = this.getT(e);
+          const val = this.getTV(e);
+          const errorTip = t.siblings(this.params.errorClass);
+          if (!this.params.tlpRules.reg.test(val) || val.length < 11) {
+            errorTip.text(this.params.tlpRules.errorTlpMsg).show();
+            this.params.results.tlp = '';
+          } else if (this.params.tlpRules.reg.test(val) && val.length === 11) {
+            this.params.tlpCallBack(val, t);
+            errorTip.hide();
+          }
+        });
+      }
+      // 验证码检测
+      formVld.prototype.codeVld = function (dom) {
+        const that = this;
+        this.params.results.code = "";
+        const codeHandle = $(this.params.acodehandleClass);
+
+        function countDown() {
+          that.codeStatus = true;
+          codeHandle.addClass('disabled');
+          codeHandle.text(that.codeAccount);
+          that.codeAccount -= 1;
+          that.timer = setTimeout(function () {
+            if (that.codeAccount >= 0) {
+              countDown();
+            } else {
+              // 重置handle状态
+              codeHandle.removeClass('disabled');
+              codeHandle.text('发送验证码');
+              that.codeStatus = false;
+              that.codeAccount = 60;
+              clearInterval(that.timer);
+            }
+          }, 1000);
+        }
+        dom.on('click', this.params.acodehandleClass, (e) => {
+          const t = this.getT(e);
+          const tellnumber = $('[data-type="tlp"] input').val();
+          if (!this.codeStatus && !t.hasClass('disabled')) {
+            // 发起验证码
+            this.params.getSmsCode(tellnumber, t);
+            //  开始倒计时
+            countDown();
+          }
+        });
+        dom.on('input', 'input', (e) => {
+          const t = this.getT(e);
+          const val = this.getTV(e);
+          const errorTip = t.siblings(this.params.errorClass);
+          const filterVal = val.replace(this.rules.letter, '').substring(0, this.params.codeLength);
+          t.val(filterVal);
+          this.params.results.code = '';
+          // 判断规则
+          if (filterVal.length < this.params.codeLength) {
+            errorTip.text(`验证码需${this.params.codeLength}位`).show();
+          } else {
+            errorTip.hide();
+            this.params.results.code = filterVal;
+          }
+          // 判断提交状态
+          this.couldSubmitStatus = this.couldSubmit();
+        });
+      }
+      formVld.prototype.pwdVld = function (dom) {
+        const rules = this.params.pwdRules;
+        dom.on('input', 'input', (e) => {
+          const t = $(e.target);
+          const val = t.val().trim();
+          const filterVal = val.substring(0, rules.maxLength);
+          t.val(filterVal);
+          const error = t.siblings(this.params.errorClass);
+          this.params.results[rules.name] = '';
+          // 判断规则
+          if (filterVal.length < rules.minLength) {
+            error.text(`密码长度需大于${rules.minLength}位`).show();
+          } else {
+            const msg = rules.regCall(filterVal);
+            if (msg.length > 0) {
+              error.text(msg).show();
+            } else {
+              this.params.results[rules.name] = filterVal;
+              error.hide();
+            }
+          }
+          // 判断提交状态
+          this.couldSubmitStatus = this.couldSubmit();
+        });
+      }
+      formVld.prototype.repwdVld = function (dom) {
+        const rules = this.params.repwdRules;
+        dom.on('input', 'input', (e) => {
+          const t = this.getT(e);
+          const val = this.getTV(e);
+          const errorTip = t.siblings(this.params.errorClass);
+          const oldval = $(`[data-type=${this.params.pwdRules.name}] input`).val();
+          this.params.results.repwd = '';
+          const filterVal = val.substring(0, rules.maxLength);
+          t.val(filterVal);
+          // 每次输入隐藏errorTip
+          errorTip.hide();
+          if (val === oldval) {
+            this.params.results.repwd = val;
+          }
+          // 判断提交状态
+          this.couldSubmitStatus = this.couldSubmit();
+        });
+        dom.on('blur', 'input', (e) => {
+          const t = this.getT(e);
+          const val = this.getTV(e);
+          const errorTip = t.siblings(this.params.errorClass);
+          const oldval = $(`[data-type=${this.params.pwdRules.name}] input`).val();
+          if (val !== oldval) {
+            errorTip.text('两次密码不一致').show();
+          }
+        });
+
+      }
+      formVld.prototype.submitVld = function (dom) {
+        dom.on('click', this.params.submitClass, (e) => {
+          if (this.couldSubmitStatus) {
+            // 提交接口
+            this.params.submitCallBack(this.params.results);
+          }
+        });
+      }
+      formVld.prototype.results = function () {
+        return this.params.results;
+      };
+      formVld.prototype.getT = function (e) {
+        return $(e.target);
+      };
+
+      formVld.prototype.getTV = function (e) {
+        return $(e.target).val().trim();
+      };
+      formVld.prototype.couldSubmit = function () {
+        // 判断提交密码的状态
+        const status = Object.values(this.params.results).every((val) => {
+          return val !== '';
+        });
+
+        if (status) {
+          $(this.params.submitClass).removeClass('disabled');
+        } else {
+          $(this.params.submitClass).addClass('disabled');
+        }
+        return status;
+      };
+
+      formVld.prototype.onCommonBlur = function (dom) {
+        const type = dom.data('type');
+        dom.on('blur', 'input', (e) => {
+          const t = this.getT(e);
+          const val = this.getTV(e);
+          const errorTip = t.siblings(this.params.errorClass);
+          if (val === '') {
+            if (type === 'tlp') {
+              errorTip.text('请输入手机号!').show();
+            } else if (type === 'code') {
+              errorTip.text('请输入验证码!').show();
+            } else if (type === 'pwd') {
+              errorTip.text('请输入密码!').show();
+            } else if (type === 'repwd') {
+              errorTip.text('请输入确认密码!').show();
+            }
+          }
+        });
+      };
+
+      function init(args) {
+        return new formVld(args);
+      }
+      $.extend({
+        formVld: init,
+      });
+    })($);
+    $.formVld({
+      dom: '.node',
+      submitClass: '.btn-submit',
+      errorClass: '.error-tip',
+      acodehandleClass: '.acodehandle',
+      tlpRules: {
+        errorTlpMsg: '请输入正确的手机号!',
+        reg: /^(1[34578]\d{9})$/,
+      },
+      pwdRules: {
+        name: 'pwd',
+        minLength: 4,
+        maxLength: 14,
+        reg: /^[a-zA-Z]\w{4,14}$/,
+        regCall(val) {
+          if (!this.reg.test(val)) {
+            return '密码不符合规则';
+          } else {
+            return '';
+          }
+        }
+      },
+      repwdRules: {
+        name: 'repwd',
+        maxLength: 14,
+      },
+      tlpCallBack(val, dom) {
+        console.log('val', dom);
+      },
+      getSmsCode(number, t) {
+        console.log('t', number, t);
+      },
+      submitCallBack(results) {
+        console.log('results', results);
+        // 提交服务器
+      }
+    });
+  </script>
+</body>
+
+</html>
