@@ -6,6 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>登录注册,忘记密码等的封装</title>
+  <!-- 最新版本的 Bootstrap 核心 CSS 文件 -->
+  <link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+    crossorigin="anonymous">
+
+  <!-- 可选的 Bootstrap 主题文件（一般不用引入） -->
+  <link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp"
+    crossorigin="anonymous">
+  <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.js"></script>
+
+  <!-- 最新的 Bootstrap 核心 JavaScript 文件 -->
+  <script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+    crossorigin="anonymous"></script>
   <style>
     .hide {
       display: none;
@@ -36,6 +48,35 @@
 </head>
 
 <body>
+  // 例如使用bootstrap样式的时候,只需要添加规则就可以生效了
+  <form class="node">
+    <div class="form-group wrap" data-type="tlp">
+      <label for="exampleInputEmail1">手机号</label>
+      <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Email">
+      <div class="error-tip"></div>
+    </div>
+    <div class="form-group wrap" data-type="pwd">
+      <label for="exampleInputPassword1">密码</label>
+      <input type="password" class="form-control" id="exampleInputPassword1" placeholder="Password">
+      <div class="error-tip"></div>
+    </div>
+    <div class="form-group">
+      <label for="exampleInputFile">File input</label>
+      <input type="file" id="exampleInputFile">
+      <p class="help-block">Example block-level help text here.</p>
+    </div>
+    <div class="checkbox">
+      <label>
+      <input type="checkbox"> Check me out
+    </label>
+    </div>
+    <div class="wrap" data-type="submit">
+      <button type="submit" class="btn btn-default btn-submit disabled">Submit</button>
+    </div>
+  </form>
+
+
+
   <div class="node">
     <div class="wrap" data-type="tlp">
       <label for="tlp">手机号:</label>
@@ -61,7 +102,6 @@
       <button class="btn-submit  disabled">提交</button>
     </div>
   </div>
-  <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.js"></script>
   <script>
     (function ($) {
       function formVld(args) {
@@ -75,7 +115,7 @@
             maxLength: 11,
             reg: {},
           },
-          repwdRules:{},
+          repwdRules: {},
           codeLength: 4,
         }, args);
         // 验证码提交相关参数
@@ -159,7 +199,6 @@
       // 验证码检测
       formVld.prototype.codeVld = function (dom) {
         const that = this;
-        this.params.results.code = "";
         const codeHandle = $(this.params.acodehandleClass);
 
         function countDown() {
@@ -168,7 +207,7 @@
           codeHandle.text(that.codeAccount);
           that.codeAccount -= 1;
           that.timer = setTimeout(function () {
-            if (that.codeAccount >= 0) {
+            if (that.codeAccount > 0) {
               countDown();
             } else {
               // 重置handle状态
